@@ -1,0 +1,213 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Surface palette : driven by data-mode on :root ── */
+:root,
+:root.dark,
+:root[data-mode="dark"] {
+  --bg:        #0a0a0b;
+  --bg-soft:   #111114;
+  --bg-card:   #16161a;
+  --bg-border: #222228;
+  --fg:        #fafafa;
+  --fg-dim:    #a1a1aa;
+  --fg-mute:   #71717a;
+  --overlay-white: rgba(255,255,255,0.05);
+  --overlay-white-strong: rgba(255,255,255,0.10);
+  color-scheme: dark;
+}
+:root.light,
+:root[data-mode="light"] {
+  --bg:        #f1f3f6;
+  --bg-soft:   #fbfcfd;
+  --bg-card:   #ffffff;
+  --bg-border: #dde1e7;
+  --fg:        #0b1220;
+  --fg-dim:    #3f4754;
+  --fg-mute:   #64748b;
+  --overlay-white: rgba(15,23,42,0.05);
+  --overlay-white-strong: rgba(15,23,42,0.10);
+  --shadow-card: 0 1px 2px rgba(15,23,42,0.04), 0 4px 14px -4px rgba(15,23,42,0.05);
+  --shadow-card-hover: 0 1px 2px rgba(15,23,42,0.06), 0 12px 28px -8px rgba(15,23,42,0.10);
+  color-scheme: light;
+}
+:root.dark, :root[data-mode="dark"] {
+  --shadow-card: none;
+  --shadow-card-hover: none;
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-feature-settings: "cv11", "ss01";
+  transition: background-color .3s ease, color .3s ease;
+}
+
+::selection { background: var(--brand-soft, rgba(52,99,255,0.35)); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--bg-border); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--fg-mute); }
+
+@layer components {
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--bg-border);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-card, none);
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all
+           focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn:focus { box-shadow: 0 0 0 2px var(--brand-soft, rgba(52,99,255,0.35)); }
+  .btn-primary {
+    color: #fff;
+    background: linear-gradient(180deg, var(--brand-400, #5b88ff), var(--brand-600, #1f47ed));
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 60px -20px var(--brand-soft, rgba(52,99,255,0.35));
+  }
+  .btn-primary:hover {
+    background: linear-gradient(180deg, var(--brand-300, #8db0ff), var(--brand-500, #3463ff));
+  }
+  .btn-primary { @apply btn; }
+  .btn-ghost {
+    @apply btn;
+    background: transparent;
+    color: var(--fg-dim);
+    border: 1px solid transparent;
+  }
+  .btn-ghost:hover {
+    background: var(--overlay-white);
+    color: var(--fg);
+    border-color: var(--bg-border);
+  }
+  .btn-outline {
+    @apply btn;
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--bg-border);
+  }
+  .btn-outline:hover { background: var(--overlay-white); }
+  .input {
+    @apply w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2;
+    background: var(--bg-soft);
+    border: 1px solid var(--bg-border);
+    color: var(--fg);
+  }
+  .input::placeholder { color: var(--fg-mute); }
+  .input:focus {
+    border-color: var(--brand, #3463ff);
+    box-shadow: 0 0 0 2px var(--brand-soft, rgba(52,99,255,0.35));
+  }
+  .textarea { @apply input min-h-[140px] resize-y leading-relaxed; }
+  .tag {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium;
+    background: var(--overlay-white);
+    border: 1px solid var(--bg-border);
+    color: var(--fg-dim);
+  }
+  .label {
+    @apply text-xs font-medium uppercase tracking-wider;
+    color: var(--fg-mute);
+  }
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors;
+    color: var(--fg-dim);
+  }
+  .nav-item:hover { background: var(--overlay-white); color: var(--fg); }
+  .nav-item.active { background: var(--overlay-white-strong); color: var(--fg); }
+}
+
+/* ── Accessibility ── */
+:root.font-sm { font-size: 14px; }
+:root.font-md { font-size: 16px; }
+:root.font-lg { font-size: 18px; }
+
+:root.compact .card { padding: 0.75rem !important; }
+:root.compact .btn { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+:root.compact .input, :root.compact .textarea { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+
+:root.reduce-motion *,
+:root.reduce-motion *::before,
+:root.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  transition-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+:root.high-contrast {
+  --bg-border: #ffffff;
+  --fg-mute: #d4d4d8;
+}
+:root.high-contrast.light {
+  --bg-border: #000000;
+  --fg-mute: #1f2937;
+}
+:root.high-contrast .card { border-width: 2px; }
+:root.high-contrast .input, :root.high-contrast .textarea { border-width: 2px; }
+
+/* Override Tailwind classes that reference our deprecated bg-bg-* palette */
+.bg-bg        { background-color: var(--bg) !important; }
+.bg-bg-soft   { background-color: var(--bg-soft) !important; }
+.bg-bg-card   { background-color: var(--bg-card) !important; }
+.bg-bg-border { background-color: var(--bg-border) !important; }
+.border-bg-border { border-color: var(--bg-border) !important; }
+.text-zinc-100, .text-zinc-200 { color: var(--fg); }
+.text-zinc-300, .text-zinc-400 { color: var(--fg-dim); }
+.text-zinc-500, .text-zinc-600 { color: var(--fg-mute); }
+
+/* ── Light-mode-specific polish ── */
+:root.light body {
+  background:
+    radial-gradient(1100px 600px at 90% -10%, color-mix(in srgb, var(--brand, #3463ff) 6%, transparent), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, color-mix(in srgb, var(--brand, #3463ff) 4%, transparent), transparent 60%),
+    var(--bg);
+}
+/* Subtle gradient inside cards for depth */
+:root.light .card { background-image: linear-gradient(180deg, rgba(255,255,255,1), rgba(250,251,253,1)); }
+/* Inputs stand out a tiny bit more */
+:root.light .input,
+:root.light .textarea {
+  background: #ffffff;
+  border-color: #d6dbe2;
+  box-shadow: inset 0 1px 0 rgba(15,23,42,0.02);
+}
+:root.light .input:hover, :root.light .textarea:hover { border-color: #b6bdc7; }
+/* Buttons get a real shadow */
+:root.light .btn-primary {
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.6) inset,
+    0 1px 2px rgba(15,23,42,0.10),
+    0 14px 30px -10px var(--brand-soft, rgba(52,99,255,0.45));
+}
+:root.light .btn-outline,
+:root.light .btn-ghost {
+  background: #ffffff;
+}
+:root.light .btn-ghost { background: transparent; }
+:root.light .btn-ghost:hover { background: rgba(15,23,42,0.04); }
+:root.light .btn-outline:hover { background: #f8fafc; border-color: #cbd5e1; }
+/* Tags + nav-items more visible in light */
+:root.light .tag {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #334155;
+}
+:root.light .nav-item:hover { background: rgba(15,23,42,0.05); }
+:root.light .nav-item.active { background: rgba(15,23,42,0.06); }
+/* Scrollbar light-mode tuning */
+:root.light ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+:root.light ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+/* Selection in light */
+:root.light ::selection { color: #fff; background: color-mix(in srgb, var(--brand, #3463ff) 75%, transparent); }
+/* Code blocks */
+:root.light code {
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.85em;
+}
