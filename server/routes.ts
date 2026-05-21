@@ -252,7 +252,7 @@ export function buildRouter() {
       if (!accountId) return res.status(400).json({ error: "accountId requis" });
       const g = await assertAccountInTenant(req, accountId);
       if (!g.ok) return res.status(g.status).json({ error: g.error });
-      const url = authUrl(accountId);
+      const url = authUrl(accountId, req);
       const mock = !process.env.LINKEDIN_CLIENT_ID || process.env.LINKEDIN_MOCK === "1";
       res.json({ url, mock });
     } catch (e: any) { res.status(500).json({ error: e.message }); }

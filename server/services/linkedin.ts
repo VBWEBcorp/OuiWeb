@@ -20,19 +20,47 @@ function isMockMode(): boolean {
   return !process.env.LINKEDIN_CLIENT_ID || process.env.LINKEDIN_MOCK === "1";
 }
 
-export function authUrl(accountId: string): string {
+/** Signed mock state — stateless, survives serverless cold starts. */
+function signMockState(accountId: string): string {
+  const ts = Date.now();
+  const payload = `${accountId}.${ts}`;
+  const key = process.env.TOKEN_ENC_KEY || "fallback";
+  const sig = crypto.createHmac("sha256", key).update(payload).digest("hex").slice(0, 16);
+  return Buffer.from(`${payload}.${sig}`).toString("base64url");
+}
+function verifyMockState(state: string, accountId: string): boolean {
+  try {
+    const decoded = Buffer.from(state, "base64url").toString("utf8");
+    const [aid, tsStr, sig] = decoded.split(".");
+    if (aid !== accountId) return false;
+    if (Date.now() - Number(tsStr) > 10 * 60_000) return false; // 10 min TTL
+    const key = process.env.TOKEN_ENC_KEY || "fallback";
+    const expect = crypto.createHmac("sha256", key).update(`${aid}.${tsStr}`).digest("hex").slice(0, 16);
+    return sig === expect;
+  } catch { return false; }
+}
+
+/** Build "{protocol}://{host}" from an Express request. */
+function originFromReq(req: any): string {
+  const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0] || req.protocol || "http";
+  const host = (req.headers["x-forwarded-host"] as string) || req.headers["host"] || `localhost:${process.env.PORT || 8787}`;
+  return `${proto}://${host}`;
+}
+
+/**
+ * Builds the authorize URL. For mock mode, the callback URL is on our own
+ * domain (derived from the incoming request) and the state is a signed token.
+ */
+export function authUrl(accountId: string, req?: any): string {
+  if (isMockMode()) {
+    const state = signMockState(accountId);
+    const base = req ? originFromReq(req) : (process.env.APP_URL || `http://localhost:${process.env.PORT || 8787}`);
+    return `${base}/api/linkedin/mock-callback?accountId=${encodeURIComponent(accountId)}&state=${state}`;
+  }
+
   const state = crypto.randomBytes(12).toString("hex");
   stateStore.set(state, { accountId, ts: Date.now() });
   for (const [k, v] of stateStore) if (Date.now() - v.ts > 600_000) stateStore.delete(k);
-
-  if (isMockMode()) {
-    // Point to our own mock callback that auto-connects the account.
-    const port = process.env.PORT || 8787;
-    const base = process.env.APP_URL?.includes(":5173")
-      ? `http://localhost:${port}`
-      : process.env.APP_URL || `http://localhost:${port}`;
-    return `${base}/api/linkedin/mock-callback?accountId=${encodeURIComponent(accountId)}&state=${state}`;
-  }
 
   const clientId = process.env.LINKEDIN_CLIENT_ID!;
   const redirect = process.env.LINKEDIN_REDIRECT_URI;
@@ -48,9 +76,7 @@ export function authUrl(accountId: string): string {
 
 /** Auto-connect an account with fake credentials — used in mock mode only. */
 export async function mockConnect(accountId: string, state: string) {
-  const entry = stateStore.get(state);
-  if (!entry || entry.accountId !== accountId) throw new Error("State invalide");
-  stateStore.delete(state);
+  if (!verifyMockState(state, accountId)) throw new Error("State invalide");
   const fakeSub = crypto.randomBytes(8).toString("hex");
   const urn = `urn:li:mock:${fakeSub}`;
   await db.updateAccount(accountId, {
