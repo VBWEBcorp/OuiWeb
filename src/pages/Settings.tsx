@@ -73,7 +73,7 @@ export default function Settings() {
   return (
     <div className="space-y-5">
       {/* Sticky header */}
-      <div className="sticky top-0 z-20 -mx-6 lg:-mx-10 px-6 lg:px-10 py-3 backdrop-blur-xl border-b border-bg-border"
+      <div className="sticky top-[52px] md:top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-3 backdrop-blur-xl border-b border-bg-border"
            style={{ background: "color-mix(in srgb, var(--bg) 80%, transparent)" }}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
           <div className="size-9 rounded-lg grid place-items-center"

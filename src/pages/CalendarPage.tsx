@@ -143,15 +143,15 @@ export default function CalendarPage() {
   return (
     <div className="space-y-5">
       {/* Sticky header */}
-      <div className="sticky top-0 z-20 -mx-6 lg:-mx-10 px-6 lg:px-10 py-3 backdrop-blur-xl border-b border-bg-border"
+      <div className="sticky top-[52px] md:top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-3 backdrop-blur-xl border-b border-bg-border"
            style={{ background: "color-mix(in srgb, var(--bg) 80%, transparent)" }}>
-        <div className="max-w-7xl mx-auto flex items-center gap-3">
+        <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-semibold tracking-tight flex items-center gap-2">
               <CalendarDays className="size-5" style={{ color: theme?.primary }} />
               Calendrier
             </h1>
-            <p className="text-[11px] text-zinc-500">Glisse · clique · programme.</p>
+            <p className="text-[11px] text-zinc-500 hidden sm:block">Glisse · clique · programme.</p>
           </div>
 
           {/* View toggle */}
@@ -176,7 +176,7 @@ export default function CalendarPage() {
               <ChevronRight className="size-4" />
             </button>
           </div>
-          <button className="btn-outline" onClick={() => setCursor(new Date())}>Aujourd'hui</button>
+          <button className="btn-outline hidden sm:inline-flex" onClick={() => setCursor(new Date())}>Aujourd'hui</button>
           <button className="btn-primary"
                   onClick={() => createOnDay(new Date())}
                   style={theme ? { background: theme.primary, boxShadow: `0 14px 36px -14px ${theme.primary}` } : undefined}>
@@ -243,8 +243,9 @@ export default function CalendarPage() {
         })}
       </div>
 
-      {/* Day labels */}
-      <div className="grid grid-cols-7 gap-2">
+      {/* Day labels + grid : scrollable horizontally on mobile, full width desktop */}
+      <div className="-mx-4 sm:mx-0 overflow-x-auto sm:overflow-visible">
+       <div className="grid grid-cols-7 gap-1.5 sm:gap-2 min-w-[640px] sm:min-w-0 px-4 sm:px-0">
         {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((d) => (
           <div key={d} className="text-[11px] text-zinc-500 px-2">{d}</div>
         ))}
@@ -328,6 +329,7 @@ export default function CalendarPage() {
             </div>
           );
         })}
+       </div>
       </div>
 
       {posts.length === 0 && (

@@ -80,7 +80,7 @@ export default function PostDetailModal({ post, onClose }: Props) {
   return (
     <>
       <Modal open={!!post} onClose={onClose} width={920}>
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-5 -mt-2">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 lg:gap-5 -mt-2">
 
           {/* ── LEFT : LinkedIn-style preview ── */}
           <div className="min-w-0">

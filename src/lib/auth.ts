@@ -14,6 +14,8 @@ type Session = {
   reducedMotion: boolean;
   compact: boolean;
   highContrast: boolean;
+  /** Browser-native notifications on post publish / failure — per tenant */
+  notifications: Partial<Record<TenantId, boolean>>;
   setSession: (s: { tenantId: TenantId; email: string }) => void;
   setMode: (m: Mode) => void;
   toggleMode: () => void;
@@ -21,6 +23,7 @@ type Session = {
   setReducedMotion: (v: boolean) => void;
   setCompact: (v: boolean) => void;
   setHighContrast: (v: boolean) => void;
+  setNotifications: (v: boolean) => void;
   logout: () => void;
 };
 
@@ -34,6 +37,7 @@ export const useAuth = create<Session>()(
       reducedMotion: false,
       compact: false,
       highContrast: false,
+      notifications: {},
       setSession: ({ tenantId, email }) => set({ tenantId, email }),
       setMode: (m) => set({ mode: m }),
       toggleMode: () => set((s) => ({ mode: s.mode === "dark" ? "light" : "dark" })),
@@ -41,11 +45,22 @@ export const useAuth = create<Session>()(
       setReducedMotion: (v) => set({ reducedMotion: v }),
       setCompact: (v) => set({ compact: v }),
       setHighContrast: (v) => set({ highContrast: v }),
+      setNotifications: (v) => set((s) => {
+        if (!s.tenantId) return s;
+        return { notifications: { ...s.notifications, [s.tenantId]: v } };
+      }),
       logout: () => set({ tenantId: null, email: null }),
     }),
     { name: "ouiweb.session" }
   )
 );
+
+/** Whether notifications are enabled for the *currently active* tenant. */
+export function useNotificationsEnabled(): boolean {
+  const tenantId = useAuth((s) => s.tenantId);
+  const map = useAuth((s) => s.notifications);
+  return !!(tenantId && map[tenantId]);
+}
 
 export function useTenant() {
   const id = useAuth((s) => s.tenantId);

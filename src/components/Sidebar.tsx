@@ -3,6 +3,8 @@ import {
   LayoutDashboard, PenSquare, Calendar, User2, BarChart3, Settings, Plus, LogOut,
 } from "lucide-react";
 import AccountSwitcher from "./AccountSwitcher";
+import NextPostHint from "./NextPostHint";
+import NotificationToggle from "./NotificationToggle";
 import { useAuth, useTenant, useTheme } from "../lib/auth";
 
 const NAV = [
@@ -23,7 +25,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="w-[260px] shrink-0 border-r border-bg-border backdrop-blur-xl flex flex-col"
+      className="w-[260px] shrink-0 h-screen border-r border-bg-border backdrop-blur-xl flex flex-col"
       style={{ background: "color-mix(in srgb, var(--bg-soft) 80%, transparent)" }}
     >
       {/* Tenant header */}
@@ -65,6 +67,10 @@ export default function Sidebar() {
         </button>
       </div>
 
+      <div className="px-3 mt-3">
+        <NextPostHint />
+      </div>
+
       <nav className="px-3 mt-5 flex-1 space-y-1">
         {NAV.map(({ to, label, icon: Icon }) => (
           <NavLink
@@ -83,6 +89,10 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      <div className="px-3 py-2 border-t border-bg-border">
+        <NotificationToggle />
+      </div>
 
       <div className="p-3 border-t border-bg-border">
         <button onClick={() => { logout(); navigate("/login"); }} className="nav-item w-full text-zinc-400 hover:text-rose-300">

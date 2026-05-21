@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
+import MobileTopBar from "./components/MobileTopBar";
 import Dashboard from "./pages/Dashboard";
 import Compose from "./pages/Compose";
 import CalendarPage from "./pages/CalendarPage";
@@ -11,14 +13,41 @@ import { useAccountBootstrap } from "./lib/store";
 import { useAuth } from "./lib/auth";
 import ThemeProvider from "./components/ThemeProvider";
 import RequireLinkedIn from "./components/RequireLinkedIn";
+import { useStatusNotifications } from "./hooks/useStatusNotifications";
 
 function AppShell() {
   useAccountBootstrap();
+  useStatusNotifications();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const location = useLocation();
+
+  // Auto-close drawer on route change (mobile)
+  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-8">
+    <div className="flex md:h-screen md:overflow-hidden">
+      {/* Mobile backdrop */}
+      {drawerOpen && (
+        <button
+          aria-label="Fermer le menu"
+          onClick={() => setDrawerOpen(false)}
+          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-fade-in"
+        />
+      )}
+
+      {/* Sidebar — fixed slide-in on mobile, static on desktop */}
+      <div
+        className={
+          "fixed md:static z-50 h-full transition-transform duration-300 " +
+          (drawerOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0")
+        }
+      >
+        <Sidebar />
+      </div>
+
+      <main className="flex-1 md:overflow-y-auto min-w-0">
+        <MobileTopBar onMenu={() => setDrawerOpen(true)} />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-4 md:py-8">
           <Routes>
             <Route path="/dashboard" element={<RequireLinkedIn><Dashboard /></RequireLinkedIn>} />
             <Route path="/compose"   element={<RequireLinkedIn><Compose /></RequireLinkedIn>} />

@@ -382,7 +382,7 @@ export default function Compose() {
   return (
     <div className="space-y-5 -mt-2">
       {/* ─── STICKY TOP BAR ─── */}
-      <div className="sticky top-0 z-20 -mx-6 lg:-mx-10 px-6 lg:px-10 py-3 backdrop-blur-xl border-b border-bg-border"
+      <div className="sticky top-[52px] md:top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-3 backdrop-blur-xl border-b border-bg-border"
            style={{ background: "color-mix(in srgb, var(--bg) 80%, transparent)" }}>
         <div className="max-w-7xl mx-auto flex items-center gap-3">
           <button onClick={() => navigate("/dashboard")} className="btn-ghost px-2 shrink-0" title="Retour">
@@ -398,7 +398,7 @@ export default function Compose() {
               · {wordCount} mots · ~{readingTime} min
             </span>
           </div>
-          <div className="hidden md:flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={async () => {
                 if (!content.trim()) { toast.error("Rien à copier"); return; }
