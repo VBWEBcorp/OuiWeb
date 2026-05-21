@@ -13,6 +13,13 @@
   to = "/.netlify/functions/api/:splat"
   status = 200
 
+# SPA fallback : toute route inconnue retombe sur index.html (React Router prend la main)
+# IMPORTANT : doit venir APRÈS la règle /api/* (Netlify lit dans l'ordre)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["mongoose"]
