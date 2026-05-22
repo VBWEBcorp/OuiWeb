@@ -159,6 +159,8 @@ const accountSchema = new mongoose.Schema<LinkedInAccountDoc>({
   accessTokenEnc: String, refreshTokenEnc: String, tokenExpiresAt: String,
   createdAt: String, updatedAt: String,
 }, { _id: false });
+// Prevent duplicate accounts (same tenant + slug) — even under concurrent cold-start seeding
+accountSchema.index({ tenantId: 1, slug: 1 }, { unique: true });
 
 const personaSchema = new mongoose.Schema<PersonaDoc>({
   accountId: { type: String, index: true },
@@ -206,12 +208,50 @@ export async function connect(): Promise<void> {
       });
       useMongo = true;
       const { Account, Persona } = models();
-      const count = await Account.countDocuments();
-      if (count === 0) {
-        const s = seed();
-        await Account.insertMany(s.accounts);
-        await Persona.insertMany(s.personas);
+
+      // ── Dedupe : if previous race conditions created duplicates, clean them ──
+      // For each (tenantId, slug), keep the OLDEST account (by createdAt) and reassign
+      // any data referencing the deleted ones to the survivor.
+      const dups: any[] = await Account.aggregate([
+        { $group: { _id: { tenantId: "$tenantId", slug: "$slug" }, ids: { $push: "$_id" }, count: { $sum: 1 } } },
+        { $match: { count: { $gt: 1 } } },
+      ]);
+      for (const dup of dups) {
+        const accs: any[] = await Account.find({ _id: { $in: dup.ids } }).sort({ createdAt: 1 }).lean();
+        const keep = accs[0]._id;
+        const removeIds = accs.slice(1).map((a) => a._id);
+        if (!removeIds.length) continue;
+        // Repoint any persona / post / aiHistory / mediaAsset using a removed id
+        const M = mongoose.models;
+        if (M.Persona)    await M.Persona.deleteMany({ accountId: { $in: removeIds } });
+        if (M.Post)       await M.Post.updateMany({ accountId: { $in: removeIds } }, { $set: { accountId: keep } });
+        if (M.AIHistory)  await M.AIHistory.updateMany({ accountId: { $in: removeIds } }, { $set: { accountId: keep } });
+        await Account.deleteMany({ _id: { $in: removeIds } });
+        console.log(`[db] deduped ${dup._id.tenantId}/${dup._id.slug} : kept ${keep}, removed ${removeIds.length}`);
       }
+
+      // ── Idempotent seed : upsert (filter on tenantId+slug), no-op if existing ──
+      const s = seed();
+      for (const acc of s.accounts) {
+        await Account.updateOne(
+          { tenantId: acc.tenantId, slug: acc.slug },
+          { $setOnInsert: acc },
+          { upsert: true },
+        );
+      }
+      // Ensure each account has a matching persona
+      for (const acc of s.accounts) {
+        const existing: any = await Account.findOne({ tenantId: acc.tenantId, slug: acc.slug }).lean();
+        if (!existing) continue;
+        const seedPersona = s.personas.find((p) => p.accountId === acc._id);
+        if (!seedPersona) continue;
+        await Persona.updateOne(
+          { accountId: existing._id },
+          { $setOnInsert: { ...seedPersona, accountId: existing._id } },
+          { upsert: true },
+        );
+      }
+
       console.log("[db] ✓ MongoDB Atlas connecté");
     } catch (e: any) {
       console.warn("[db] ⚠ MongoDB indisponible (" + e.message + ")");

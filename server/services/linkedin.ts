@@ -89,6 +89,17 @@ export async function mockConnect(accountId: string, state: string) {
   return { urn };
 }
 
+/** Extracts the OAuth-specific error_description from an axios error so we can
+ *  surface a human-readable message instead of "Request failed with status code 401". */
+function describeOAuthError(err: any): Error {
+  const r = err?.response;
+  const status = r?.status;
+  const data = r?.data;
+  const code = data?.error || data?.serviceErrorCode || "linkedin_error";
+  const desc = data?.error_description || data?.message || err?.message || "unknown";
+  return new Error(`[${status || "?"} ${code}] ${desc}`);
+}
+
 export async function exchangeCode(code: string, state: string) {
   const entry = stateStore.get(state);
   if (!entry) throw new Error("State invalide ou expiré");
@@ -100,16 +111,27 @@ export async function exchangeCode(code: string, state: string) {
     grant_type: "authorization_code",
     code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirect,
   });
-  const tokResp = await axios.post(TOKEN_URL, params.toString(), {
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-  });
+
+  let tokResp;
+  try {
+    tokResp = await axios.post(TOKEN_URL, params.toString(), {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+  } catch (err: any) {
+    throw describeOAuthError(err);
+  }
   const access_token: string = tokResp.data.access_token;
   const expires_in: number = tokResp.data.expires_in;
   const refresh_token: string | undefined = tokResp.data.refresh_token;
 
-  const userInfo = await axios.get("https://api.linkedin.com/v2/userinfo", {
-    headers: { Authorization: `Bearer ${access_token}` },
-  });
+  let userInfo;
+  try {
+    userInfo = await axios.get("https://api.linkedin.com/v2/userinfo", {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+  } catch (err: any) {
+    throw describeOAuthError(err);
+  }
   const sub: string = userInfo.data.sub;
   const urn = `urn:li:person:${sub}`;
 

@@ -32,6 +32,12 @@ function parsePasswords(): Record<string, string[]> {
 const PASSWORDS = parsePasswords();
 
 /** Email → tenant resolution (kept in sync with frontend logic for UX hints). */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!),
+  );
+}
+
 function resolveTenant(email: string): "vbweb" | "ouibo" | null {
   const e = email.trim().toLowerCase();
   if (!e) return null;
@@ -290,7 +296,28 @@ export function buildRouter() {
         <script>setTimeout(()=>window.close(), 800);</script>
       </body></html>`);
     } catch (e: any) {
-      res.status(400).send("Erreur OAuth: " + e.message);
+      const msg = String(e?.message || "Erreur inconnue");
+      // Try to extract LinkedIn OAuth error code from "[status code] description" format
+      const m = msg.match(/^\[(\d+|\?) ([^\]]+)\] (.+)$/);
+      const status = m?.[1] || "?";
+      const code = m?.[2] || "error";
+      const desc = m?.[3] || msg;
+      const hint =
+        code === "invalid_client" ? "Vérifie LINKEDIN_CLIENT_ID et LINKEDIN_CLIENT_SECRET dans .env (et l'absence d'espaces ou de padding = manquants)." :
+        code === "invalid_grant" ? "Code OAuth expiré ou redirect_uri ne matche pas exactement l'URL enregistrée dans LinkedIn Developer dashboard." :
+        code === "unauthorized_client" ? "Les produits 'Sign In with LinkedIn' et 'Share on LinkedIn' ne sont peut-être pas activés dans l'app LinkedIn." :
+        status === "401" ? "Le compte LinkedIp qui s'est connecté n'est pas autorisé : ajoute-le en Team member ou utilise le compte Owner de l'app." :
+        "Vérifie les logs serveur pour plus de détails.";
+      res.status(400).send(`<html><body style="background:#0a0a0b;color:#fff;font-family:system-ui;display:grid;place-items:center;height:100vh;padding:24px;">
+        <div style="max-width:520px;text-align:center;background:#16161a;border:1px solid #f43f5e44;border-radius:16px;padding:28px;">
+          <div style="font-size:40px;line-height:1;margin-bottom:8px">❌</div>
+          <h2 style="margin:0 0 6px;font-weight:600">Erreur OAuth LinkedIn</h2>
+          <div style="opacity:.7;font-size:12px;margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em">${status} · ${code}</div>
+          <pre style="text-align:left;background:#0a0a0b;border:1px solid #222228;border-radius:8px;padding:10px;font-size:12px;white-space:pre-wrap;word-break:break-word;color:#fca5a5">${escapeHtml(desc)}</pre>
+          <p style="margin:16px 0 0;opacity:.75;font-size:13px;line-height:1.5">${escapeHtml(hint)}</p>
+          <button onclick="window.close()" style="margin-top:18px;padding:8px 18px;border-radius:10px;background:#3463ff;border:none;color:white;font-weight:500;cursor:pointer">Fermer</button>
+        </div>
+      </body></html>`);
     }
   });
 
