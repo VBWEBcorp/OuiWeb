@@ -1,14 +1,26 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, Plus } from "lucide-react";
 import { useTenant, useTheme } from "../lib/auth";
 
 type Props = { onMenu: () => void };
+
+const PAGE_TITLES: Record<string, string> = {
+  "/dashboard": "Mes posts",
+  "/compose": "Composer",
+  "/calendar": "Calendrier",
+  "/persona": "Persona IA",
+  "/analytics": "Statistiques",
+  "/settings": "Réglages",
+};
 
 /** Sticky mobile top bar — visible only below md. Shown when sidebar is hidden. */
 export default function MobileTopBar({ onMenu }: Props) {
   const tenant = useTenant();
   const theme = useTheme();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const pageTitle =
+    Object.entries(PAGE_TITLES).find(([p]) => pathname.startsWith(p))?.[1] ?? "";
 
   return (
     <header
@@ -25,10 +37,15 @@ export default function MobileTopBar({ onMenu }: Props) {
 
       {tenant && (
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className="size-7 rounded-lg bg-white/5 grid place-items-center p-0.5 border border-white/10">
+          <div className="size-7 rounded-lg bg-white/5 grid place-items-center p-0.5 border border-white/10 shrink-0">
             <img src={tenant.logo} alt={tenant.name} className="max-h-full max-w-full object-contain" />
           </div>
-          <div className="text-sm font-semibold truncate">{tenant.name}</div>
+          <div className="min-w-0 leading-tight">
+            {pageTitle && <div className="text-sm font-semibold truncate">{pageTitle}</div>}
+            <div className={(pageTitle ? "text-[10px] text-zinc-500" : "text-sm font-semibold") + " truncate"}>
+              {tenant.name}
+            </div>
+          </div>
         </div>
       )}
 

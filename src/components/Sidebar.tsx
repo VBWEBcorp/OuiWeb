@@ -7,13 +7,30 @@ import NextPostHint from "./NextPostHint";
 import NotificationToggle from "./NotificationToggle";
 import { useAuth, useTenant, useTheme } from "../lib/auth";
 
-const NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/compose",   label: "Composer",  icon: PenSquare },
-  { to: "/calendar",  label: "Calendrier", icon: Calendar },
-  { to: "/persona",   label: "Persona",   icon: User2 },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/settings",  label: "Réglages",  icon: Settings },
+type NavItem = { to: string; label: string; desc: string; icon: typeof LayoutDashboard };
+
+const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: "Publication",
+    items: [
+      { to: "/dashboard", label: "Mes posts",  desc: "Brouillons, programmés, publiés", icon: LayoutDashboard },
+      { to: "/compose",   label: "Composer",   desc: "Rédiger un nouveau post",          icon: PenSquare },
+      { to: "/calendar",  label: "Calendrier", desc: "Vue planning des programmations",  icon: Calendar },
+    ],
+  },
+  {
+    title: "Intelligence",
+    items: [
+      { to: "/persona",   label: "Persona IA",   desc: "Ton style pour la génération", icon: User2 },
+      { to: "/analytics", label: "Statistiques", desc: "Performance de tes posts",     icon: BarChart3 },
+    ],
+  },
+  {
+    title: "Configuration",
+    items: [
+      { to: "/settings",  label: "Réglages", desc: "Compte, thème, connexion LinkedIn", icon: Settings },
+    ],
+  },
 ];
 
 export default function Sidebar() {
@@ -71,22 +88,44 @@ export default function Sidebar() {
         <NextPostHint />
       </div>
 
-      <nav className="px-3 mt-5 flex-1 space-y-1">
-        {NAV.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              "nav-item" + (isActive ? " active" : "")
-            }
-            style={({ isActive }) => isActive && theme ? {
-              background: theme.primarySoft,
-              color: "#fff",
-            } : undefined}
-          >
-            <Icon className="size-4" />
-            {label}
-          </NavLink>
+      <nav className="px-3 mt-4 flex-1 overflow-y-auto">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.title} className="mb-4">
+            <div className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+              {group.title}
+            </div>
+            <div className="space-y-1">
+              {group.items.map(({ to, label, desc, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    "group flex items-start gap-3 px-3 py-2 rounded-lg transition-colors " +
+                    (isActive ? "" : "text-zinc-400 hover:bg-white/5 hover:text-white")
+                  }
+                  style={({ isActive }) => isActive && theme ? {
+                    background: theme.primarySoft,
+                    color: "#fff",
+                  } : undefined}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon
+                        className="size-4 mt-0.5 shrink-0"
+                        style={isActive && theme ? { color: theme.primary } : undefined}
+                      />
+                      <div className="min-w-0 leading-tight">
+                        <div className="text-sm font-medium">{label}</div>
+                        <div className={"text-[11px] truncate " + (isActive ? "text-white/60" : "text-zinc-600 group-hover:text-zinc-400")}>
+                          {desc}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 

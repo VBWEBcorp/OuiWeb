@@ -43,8 +43,8 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Posts</h1>
-          <p className="text-sm text-zinc-500">Brouillons, programmations et historique de publication.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Mes posts</h1>
+          <p className="text-sm text-zinc-500">Filtre par statut ci-dessous : brouillons, programmés, publiés ou archivés.</p>
         </div>
         <Link to="/compose" className="btn-primary">
           <Sparkles className="size-4" /> Composer un post

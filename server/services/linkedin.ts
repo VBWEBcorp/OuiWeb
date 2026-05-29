@@ -1,5 +1,7 @@
 import axios from "axios";
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { db } from "../db/store";
 import { encrypt, decrypt } from "../lib/crypto";
 
@@ -146,6 +148,89 @@ export async function exchangeCode(code: string, state: string) {
   return { accountId: entry.accountId, urn };
 }
 
+/** Loads the raw bytes (+ mime) of a media item, whether stored on R2 (http URL)
+ *  or on the local disk fallback (`/media/<file>` → data/uploads/<file>). */
+async function loadMediaBytes(url: string): Promise<{ buffer: Buffer; mime: string }> {
+  if (/^https?:\/\//i.test(url)) {
+    const resp = await axios.get(url, { responseType: "arraybuffer" });
+    const mime = String(resp.headers["content-type"] || "application/octet-stream").split(";")[0];
+    return { buffer: Buffer.from(resp.data), mime };
+  }
+  // Local fallback: "/media/<filename>"
+  const filename = url.replace(/^\/media\//, "");
+  const file = path.resolve(process.cwd(), "data", "uploads", filename);
+  const buffer = fs.readFileSync(file);
+  const ext = path.extname(file).toLowerCase();
+  const mimeByExt: Record<string, string> = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif",
+    ".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm",
+  };
+  return { buffer, mime: mimeByExt[ext] || "application/octet-stream" };
+}
+
+/**
+ * Registers and uploads a single image/video to LinkedIn, returning its
+ * `urn:li:digitalmediaAsset:…` URN. LinkedIn does NOT accept arbitrary external
+ * image URLs in a UGC post — binary media must go through this 3-step flow:
+ * registerUpload → PUT bytes to the returned uploadUrl → reference the asset URN.
+ */
+async function uploadAsset(token: string, ownerUrn: string, kind: "image" | "video", url: string): Promise<string> {
+  const recipe = kind === "video"
+    ? "urn:li:digitalmediaRecipe:feedshare-video"
+    : "urn:li:digitalmediaRecipe:feedshare-image";
+
+  const register = await axios.post(
+    `${API}/assets?action=registerUpload`,
+    {
+      registerUploadRequest: {
+        recipes: [recipe],
+        owner: ownerUrn,
+        serviceRelationships: [
+          { relationshipType: "OWNER", identifier: "urn:li:userGeneratedContent" },
+        ],
+      },
+    },
+    { headers: { Authorization: `Bearer ${token}`, "X-Restli-Protocol-Version": "2.0.0", "Content-Type": "application/json" } },
+  );
+
+  const asset: string = register.data.value.asset;
+  const uploadUrl: string =
+    register.data.value.uploadMechanism["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"].uploadUrl;
+
+  const { buffer, mime } = await loadMediaBytes(url);
+  await axios.put(uploadUrl, buffer, {
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": mime },
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
+  });
+
+  // Video is processed asynchronously by LinkedIn — referencing the asset in a
+  // post before it's AVAILABLE makes the post fail. Images are ready immediately.
+  if (kind === "video") {
+    await waitForAsset(token, asset);
+  }
+
+  return asset;
+}
+
+/** Polls an asset until LinkedIn finishes processing it (or throws on timeout/error). */
+async function waitForAsset(token: string, assetUrn: string, timeoutMs = 90_000): Promise<void> {
+  const id = assetUrn.split(":").pop();
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const r = await axios.get(`${API}/assets/${id}`, {
+      headers: { Authorization: `Bearer ${token}`, "X-Restli-Protocol-Version": "2.0.0" },
+    });
+    const statuses: string[] = (r.data.recipes || []).map((x: any) => x.status);
+    if (statuses.includes("AVAILABLE")) return;
+    if (statuses.some((s) => s === "CLIENT_ERROR" || s === "SERVER_ERROR")) {
+      throw new Error("LinkedIn n'a pas pu traiter la vidéo (format ou durée non supportés ?)");
+    }
+    await new Promise((res) => setTimeout(res, 3000));
+  }
+  throw new Error("Traitement de la vidéo trop long côté LinkedIn — réessaie dans quelques minutes.");
+}
+
 export async function publishPost(accountId: string, content: string, media: { kind: string; url: string }[] = []) {
   const account = await db.account(accountId);
   if (!account) throw new Error("Compte introuvable");
@@ -163,29 +248,52 @@ export async function publishPost(accountId: string, content: string, media: { k
 
   // ── Real LinkedIn path ──
   const token = decrypt(account.accessTokenEnc);
+  const owner = account.linkedinUrn;
+
+  // Determine the share category from the first media item (LinkedIn can't mix categories).
+  const first = media[0];
+  const category = !first ? "NONE" : (first.kind === "video" ? "VIDEO" : first.kind === "link" ? "ARTICLE" : "IMAGE");
+
+  let shareMedia: any[] | undefined;
+  try {
+    if (category === "IMAGE") {
+      const images = media.filter((m) => m.kind === "image");
+      const assets = await Promise.all(images.map((m) => uploadAsset(token, owner, "image", m.url)));
+      shareMedia = assets.map((asset) => ({ status: "READY", media: asset, description: { text: "" }, title: { text: "" } }));
+    } else if (category === "VIDEO") {
+      const asset = await uploadAsset(token, owner, "video", first.url);
+      shareMedia = [{ status: "READY", media: asset, description: { text: "" }, title: { text: "" } }];
+    } else if (category === "ARTICLE") {
+      // Links keep using originalUrl — that's the one case the field is valid for.
+      shareMedia = [{ status: "READY", originalUrl: first.url, description: { text: "" }, title: { text: "" } }];
+    }
+  } catch (err: any) {
+    throw describeOAuthError(err);
+  }
+
   const body: any = {
-    author: account.linkedinUrn,
+    author: owner,
     lifecycleState: "PUBLISHED",
     specificContent: {
       "com.linkedin.ugc.ShareContent": {
         shareCommentary: { text: content },
-        shareMediaCategory: media.length === 0 ? "NONE" : (media[0].kind === "video" ? "VIDEO" : media[0].kind === "link" ? "ARTICLE" : "IMAGE"),
-        media: media.length === 0 ? undefined : media.map((m) => ({
-          status: "READY",
-          originalUrl: m.url,
-          description: { text: "" },
-          title: { text: "" },
-        })),
+        shareMediaCategory: category,
+        ...(shareMedia ? { media: shareMedia } : {}),
       },
     },
     visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
   };
-  const r = await axios.post(`${API}/ugcPosts`, body, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "X-Restli-Protocol-Version": "2.0.0",
-      "Content-Type": "application/json",
-    },
-  });
-  return r.headers["x-restli-id"] || r.data.id;
+
+  try {
+    const r = await axios.post(`${API}/ugcPosts`, body, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-Restli-Protocol-Version": "2.0.0",
+        "Content-Type": "application/json",
+      },
+    });
+    return r.headers["x-restli-id"] || r.data.id;
+  } catch (err: any) {
+    throw describeOAuthError(err);
+  }
 }
